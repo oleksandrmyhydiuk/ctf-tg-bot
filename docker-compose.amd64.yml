@@ -1,0 +1,50 @@
+# Variant for x86_64 (Intel/AMD): PCs, most VPSs, Docker Desktop on Windows/Linux/macOS (Intel).
+#
+#   cp .env.example .env        # set BOT_TOKEN
+#   docker compose -f docker-compose.amd64.yml up -d --build
+#   docker compose -f docker-compose.amd64.yml logs -f
+#
+# WARNING: access to docker.sock is effectively equivalent to root on the host. Bot users
+# do not have direct access to the socket (they only execute commands inside sandboxes),
+# but compromising the bot itself = compromising the host. For a public bot, run
+# this on a dedicated VM.
+name: ctf-sandbox-bot
+
+services:
+  bot:
+    image: ctf-sandbox-bot:amd64
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    env_file: .env
+    environment:
+      # Overrides DB_PATH from .env: database lives in a volume
+      DB_PATH: /data/sandbox.db
+    volumes:
+      - bot-data:/data
+      # The bot creates sandboxes as sibling containers via the host daemon.
+      # For rootless Docker/Podman, set DOCKER_SOCK in .env.
+      - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
+    restart: unless-stopped
+    init: true
+    # The bot container itself is locked down as much as possible (root is only needed to access the socket)
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 100
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  bot-data:
