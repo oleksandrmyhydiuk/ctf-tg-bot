@@ -63,12 +63,18 @@ docker buildx build --platform linux/amd64,linux/arm64 -t REGISTRY/ctf-sandbox-b
 
 ## Project Structure
 
-| File | Purpose |
+| Path | Purpose |
 |---|---|
-| `main.py` | `aiogram` handlers, FSM, solo & multiplayer modes, TTL worker, disk watchdog, startup reconciliation |
+| `main.py` | Entry point: startup initialization, router registration, background task orchestration |
+| `bot/constants.py` | Command regexes, mode titles, UI footers, default slugs |
+| `bot/state.py` | FSM states (`Sandbox`), concurrency locks (`alloc_lock`, `locks`, `group_locks`), rate-limit store |
+| `bot/formatting.py` | Terminal output escaping/truncation, step rendering, reward calculation, mention formatting |
+| `bot/keyboards.py` | Inline keyboards and lobby/scoreboard renderers for solo and group modes |
+| `bot/handlers/` | Modular `aiogram` routers (`common.py`, `solo.py`, `group_common.py`, `group_race.py`, `group_koth.py`, `terminal.py`) |
+| `bot/services/` | Domain services (`sessions.py`, `koth.py`) and background workers (`workers.py`: TTL, disk watchdog, startup reconcile) |
 | `docker_manager.py` | Container lifecycle, command execution, out-of-band file reads, KOTH sanitization (via `asyncio.to_thread`) |
-| `db.py` | Async SQLite layer (`users`, `tasks`, `active_sessions`, `solved`, `group_sessions`, `group_participants`) |
-| `tasks_data.py` | Pool of 27 multi-step challenges (setup & check scripts) |
+| `db/` | Async SQLite layer split by domain (`core.py`, `users.py`, `tasks.py`, `sessions.py`, `groups.py`) |
+| `tasks/` | Pool of 27 multi-step challenges grouped by category (`linux.py`, `web_db.py`, `security_privesc.py`, `security_forensics.py`, `security_network_crypto.py`, `group.py`) |
 | `config.py` | Resource limits, timeouts, and environment configuration |
 
 ## Architecture & Security Controls
@@ -130,7 +136,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t REGISTRY/ctf-sandbox-b
 
 ## Adding a New Task
 
-Add a dictionary entry to `TASKS` in `tasks_data.py` with `slug`, `title`, `category`, `difficulty`, `reward_points`, `intro`, `setup_script`, and `steps` (`text`, `hint`, `check`). Check scripts run as `root` (or test user permissions explicitly) and exit `0` on success. Tasks are automatically synced to SQLite on bot startup by `slug`.
+Add a dictionary entry to the appropriate category module in `tasks/` (e.g. `tasks/linux.py`, `tasks/web_db.py`, `tasks/security_*.py`, or `tasks/group.py`) with `slug`, `title`, `category`, `difficulty`, `reward_points`, `intro`, `setup_script`, and `steps` (`text`, `hint`, `check`). Check scripts run as `root` (or test user permissions explicitly) and exit `0` on success. Tasks are automatically synced to SQLite on bot startup by `slug`.
 
 ## Known Limitations
 
