@@ -22,6 +22,9 @@ RUN pip install -r requirements.txt
 
 # Bot code + sandbox Dockerfile (the bot builds the ctf-sandbox image from it on first start)
 COPY *.py sandbox.Dockerfile ./
+COPY bot ./bot
+COPY db ./db
+COPY tasks ./tasks
 
 # SQLite database lives in a volume
 RUN mkdir -p /data
