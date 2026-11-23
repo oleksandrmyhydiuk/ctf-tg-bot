@@ -1,41 +1,31 @@
 import {
+  AlertTriangle,
   Award,
-  Bot,
+  CheckCircle2,
   Clock,
   Cpu,
-  EyeOff,
   Home,
-  Lock,
+  Layers,
+  Loader2,
   Play,
-  Search,
   Sparkles,
+  Terminal,
   Trophy,
   X,
   Zap,
 } from 'lucide-react';
-import type { Difficulty, Task, TaskIconName, VictoryData } from '../types';
+import type { ActiveSession, Difficulty, Task, VictoryData } from '../types';
+import { renderSafeBotHtml } from '../lib/safeHtml';
 import { hapticImpact } from '../lib/telegram';
 
 function getDifficultyClasses(difficulty: Difficulty): string {
   switch (difficulty) {
-    case 'Easy':
+    case 'easy':
       return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40';
-    case 'Medium':
+    case 'medium':
       return 'bg-amber-500/15 text-amber-400 border border-amber-500/40';
-    case 'Hard':
+    case 'hard':
       return 'bg-rose-500/15 text-rose-400 border border-rose-500/40';
-  }
-}
-
-function renderTaskIcon(icon: TaskIconName) {
-  const cls = 'w-5 h-5 text-emerald-400';
-  switch (icon) {
-    case 'lock':
-      return <Lock className={cls} />;
-    case 'search':
-      return <Search className={cls} />;
-    case 'eye-off':
-      return <EyeOff className={cls} />;
   }
 }
 
@@ -45,26 +35,44 @@ function renderTaskIcon(icon: TaskIconName) {
 
 interface TaskPreviewModalProps {
   task: Task | null;
+  activeSession: ActiveSession | null;
+  sessionTtl: number;
+  starting: boolean;
+  startError: string | null;
   onClose: () => void;
   onStart: (task: Task) => void;
+  onResume: () => void;
 }
 
 export function TaskPreviewModal({
   task,
+  activeSession,
+  sessionTtl,
+  starting,
+  startError,
   onClose,
   onStart,
+  onResume,
 }: TaskPreviewModalProps) {
   if (!task) return null;
 
-  const handleStart = () => {
+  const isSameActive = activeSession?.slug === task.slug;
+  const hasOtherActive = Boolean(activeSession && !isSameActive);
+  const ttlMinutes = Math.max(1, Math.round(sessionTtl / 60));
+
+  const handleAction = () => {
     hapticImpact('medium');
-    onStart(task);
+    if (isSameActive) {
+      onResume();
+    } else {
+      onStart(task);
+    }
   };
 
   return (
     <div
       className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end justify-center"
-      onClick={onClose}
+      onClick={starting ? undefined : onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -75,22 +83,31 @@ export function TaskPreviewModal({
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-11 h-11 rounded-md bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center shrink-0">
-              {renderTaskIcon(task.icon)}
+              <Terminal className="w-5 h-5 text-emerald-400" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-bold text-emerald-50 truncate">
-                {task.title}
-              </h2>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-base font-bold text-emerald-50 truncate">
+                  {task.title}
+                </h2>
+                {task.done && (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded ${getDifficultyClasses(
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${getDifficultyClasses(
                     task.difficulty
                   )}`}
                 >
                   {task.difficulty}
                 </span>
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-300 bg-[#090f14] border border-slate-800 px-1.5 py-0.5 rounded">
+                  <Layers className="w-3 h-3 text-cyan-400" />
+                  {task.stepsCount} кр.
+                </span>
                 <span className="text-xs font-bold text-emerald-400">
-                  +{task.xp} XP
+                  +{task.rewardPoints} б.
                 </span>
               </div>
             </div>
@@ -99,34 +116,66 @@ export function TaskPreviewModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={starting}
             aria-label="Закрити"
-            className="p-1.5 rounded text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors cursor-pointer disabled:opacity-40"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="bg-[#040709] border border-emerald-500/25 rounded-md p-3.5 text-xs text-slate-300 leading-relaxed">
-          {task.loreDesc}
+        <div className="bg-[#040709] border border-emerald-500/25 rounded-md p-3.5 text-xs text-slate-300 leading-relaxed max-h-40 overflow-y-auto">
+          {renderSafeBotHtml(task.description)}
         </div>
 
         <div className="flex items-center justify-between px-3 py-2.5 rounded-md bg-[#090f14] border border-cyan-500/25 text-[11px]">
           <span className="flex items-center gap-1.5 text-cyan-300 font-semibold">
             <Cpu className="w-3.5 h-3.5" />
-            <span>Ресурси контейнера</span>
+            <span>Контейнер</span>
           </span>
           <span className="text-slate-300 font-bold">
-            128MB RAM • 0.5 CPU • 15m TTL
+            {task.memLimit.toUpperCase()} RAM • {task.pidsLimit} PIDs • {ttlMinutes}m TTL
           </span>
         </div>
 
+        {hasOtherActive && (
+          <div className="px-3 py-2 rounded-md bg-amber-950/60 border border-amber-500/40 text-amber-200 text-[11px] flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <span>
+              У вас уже активна сесія «{activeSession?.title}». Зупиніть її в терміналі, щоб запустити нове завдання.
+            </span>
+          </div>
+        )}
+
+        {startError && (
+          <div className="px-3 py-2 rounded-md bg-rose-950/70 border border-rose-500/50 text-rose-200 text-[11px] flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <span>{startError}</span>
+          </div>
+        )}
+
         <button
           type="button"
-          onClick={handleStart}
-          className="w-full py-3 px-4 bg-emerald-500 text-black font-bold text-xs uppercase tracking-wider hover:bg-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.4)] rounded-md flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
+          onClick={handleAction}
+          disabled={starting || hasOtherActive}
+          className="w-full py-3 px-4 bg-emerald-500 text-black font-bold text-xs uppercase tracking-wider hover:bg-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.4)] rounded-md flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Play className="w-4 h-4 fill-black" />
-          <span>Запустити пісочницю</span>
+          {starting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Готую Docker-середовище...</span>
+            </>
+          ) : isSameActive ? (
+            <>
+              <Play className="w-4 h-4 fill-black" />
+              <span>Повернутися в термінал</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4 fill-black" />
+              <span>Запустити пісочницю</span>
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -140,10 +189,18 @@ export function TaskPreviewModal({
 interface HintModalProps {
   isOpen: boolean;
   hint: string;
+  currentReward: number;
+  maxReward: number;
   onClose: () => void;
 }
 
-export function HintModal({ isOpen, hint, onClose }: HintModalProps) {
+export function HintModal({
+  isOpen,
+  hint,
+  currentReward,
+  maxReward,
+  onClose,
+}: HintModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -161,9 +218,9 @@ export function HintModal({ isOpen, hint, onClose }: HintModalProps) {
               <Sparkles className="w-4 h-4 text-cyan-300" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-cyan-200">AI-Ментор</h2>
+              <h2 className="text-sm font-bold text-cyan-200">Підказка кроку</h2>
               <span className="text-[10px] text-cyan-400/75 uppercase tracking-wider">
-                Gemini Flash // Підказка
+                Нагорода: {currentReward} / {maxReward} б.
               </span>
             </div>
           </div>
@@ -178,12 +235,12 @@ export function HintModal({ isOpen, hint, onClose }: HintModalProps) {
           </button>
         </div>
 
-        <div className="bg-[#040709] border border-cyan-500/30 rounded-md p-3.5 text-xs text-emerald-100 leading-relaxed">
-          {hint}
+        <div className="bg-[#040709] border border-cyan-500/30 rounded-md p-3.5 text-xs text-emerald-100 leading-relaxed max-h-56 overflow-y-auto">
+          {renderSafeBotHtml(hint)}
         </div>
 
         <p className="text-[10px] text-amber-400/90 text-center">
-          Активовано штраф -10% XP до нагороди за це завдання.
+          Кожна підказка на окремому кроці зменшує нагороду на ~20% (мінімум 50% від базової).
         </p>
 
         <button
@@ -250,20 +307,26 @@ export function VictoryModal({
               <span>Нагорода</span>
             </div>
             <div className="text-sm font-bold text-emerald-400">
-              +{victory.earnedXp} XP
+              +{victory.awardedPoints} б.
             </div>
           </div>
         </div>
 
-        <div className="bg-[#040709] border border-cyan-500/30 rounded-md p-3.5 space-y-1.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-300 uppercase tracking-wider">
-            <Bot className="w-3.5 h-3.5" />
-            <span>AI Code Review</span>
+        {victory.alreadySolved ? (
+          <div className="bg-amber-950/50 border border-amber-500/40 rounded-md p-3 text-xs text-amber-200 text-center">
+            Бали за неї вже були нараховані раніше. Загальний рахунок:{' '}
+            <span className="font-bold text-amber-100">{victory.totalScore} б.</span>
           </div>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            {victory.task.review}
-          </p>
-        </div>
+        ) : (
+          <div className="bg-[#040709] border border-cyan-500/30 rounded-md p-3 text-xs text-slate-300 text-center">
+            Нараховано{' '}
+            <span className="font-bold text-emerald-400">
+              +{victory.awardedPoints}
+            </span>{' '}
+            із {victory.maxPoints} балів. Загальний рахунок:{' '}
+            <span className="font-bold text-cyan-300">{victory.totalScore} б.</span>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2.5 pt-1">
           <button

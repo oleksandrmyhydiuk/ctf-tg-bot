@@ -50,6 +50,10 @@ function getWebApp(): TelegramWebApp | undefined {
   return window.Telegram?.WebApp;
 }
 
+export function getInitData(): string {
+  return getWebApp()?.initData ?? '';
+}
+
 export function initTelegramApp(): void {
   const webApp = getWebApp();
   if (!webApp) return;
