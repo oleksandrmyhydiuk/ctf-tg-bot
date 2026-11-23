@@ -33,3 +33,11 @@ CMD_TIMEOUT = 10            # timeout in seconds for a single user command
 MAX_RAW_OUTPUT = 4000       # max output bytes read from container
 MAX_CMD_LEN = 500           # maximum command length
 MIN_CMD_INTERVAL = 0.7      # rate limit: minimum seconds between commands per user
+
+# Telegram Mini App (WebApp)
+WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip()
+WEBAPP_ENABLED = os.getenv("WEBAPP_ENABLED", "1").strip().lower() not in {"0", "false", "no", "off", ""}
+WEBAPP_HOST = os.getenv("WEBAPP_HOST", "0.0.0.0").strip() or "0.0.0.0"
+WEBAPP_PORT = int(os.getenv("WEBAPP_PORT", "8080"))
+_webapp_dev_uid = os.getenv("WEBAPP_DEV_USER_ID", "").strip()
+WEBAPP_DEV_USER_ID: int | None = int(_webapp_dev_uid) if _webapp_dev_uid else None
