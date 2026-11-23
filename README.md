@@ -76,6 +76,43 @@ docker buildx build --platform linux/amd64,linux/arm64 -t REGISTRY/ctf-sandbox-b
 | `db/` | Async SQLite layer split by domain (`core.py`, `users.py`, `tasks.py`, `sessions.py`, `groups.py`) |
 | `tasks/` | Pool of 27 multi-step challenges grouped by category (`linux.py`, `web_db.py`, `security_privesc.py`, `security_forensics.py`, `security_network_crypto.py`, `group.py`) |
 | `config.py` | Resource limits, timeouts, and environment configuration |
+| `webapp/` | Cyberpunk Terminal Telegram Mini App (Vite + React + TypeScript + Tailwind CSS v4) with interactive Linux simulator |
+
+## Telegram Mini App (`webapp/`)
+
+`webapp/` contains a mobile-first **Cyberpunk Terminal** Telegram Mini App built with Vite, React, TypeScript, and Tailwind CSS v4. It integrates with the Telegram WebApp SDK (`ready()`, `expand()`, `BackButton`, `HapticFeedback`, safe-area insets) and includes an in-browser Linux sandbox simulator (`ls`, `cat`, `chmod`, `grep`, `echo >`, `mv`, `pwd`, `whoami`, `clear`, `help`).
+
+### Structure
+
+- `webapp/src/types/index.ts` — shared TypeScript contracts (`Task`, `VirtualFileSystem`, `TerminalEntry`, `TelegramUser`, `LeaderboardEntry`)
+- `webapp/src/data/` — challenge definitions (`tasks.ts`) and leaderboard seed data (`leaderboard.ts`)
+- `webapp/src/lib/telegram.ts` — safe Telegram WebApp SDK wrapper with browser fallbacks
+- `webapp/src/lib/simulator.ts` — virtual filesystem, command executor, tab autocomplete, and solution checker
+- `webapp/src/components/` — Cyberpunk UI screens and modals (`Header`, `BottomNav`, `HubScreen`, `SandboxScreen`, `LeaderboardScreen`, `Modals`)
+
+### Local Development & Production Build
+
+```bash
+cd webapp
+npm install
+
+# Start local dev server
+npm run dev
+
+# Type-check and build static bundle into webapp/dist/
+npm run typecheck
+npm run build
+npm run preview
+```
+
+`vite.config.ts` sets `base: './'`, so the static output in `webapp/dist/` can be deployed directly to any HTTPS static host (GitHub Pages, Cloudflare Pages, Netlify, Vercel, or nginx subpath).
+
+### Connecting to `@BotFather`
+
+1. Deploy `webapp/dist/` to an **HTTPS** URL (Telegram Mini Apps require HTTPS).
+2. Open `@BotFather` in Telegram and run `/mybots` → select your bot → **Bot Settings** → **Menu Button** (or **Configure Mini App**).
+3. Paste your deployed HTTPS URL and set a button title (e.g. `DevOps Sandbox`).
+4. Launch the Mini App from the bot's menu button or direct `t.me/<bot_username>/<app_name>` link.
 
 ## Architecture & Security Controls
 
