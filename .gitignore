@@ -38,3 +38,8 @@ Thumbs.db
 
 # Logs
 *.log
+
+# WebApp (Telegram Mini App)
+webapp/node_modules/
+webapp/dist/
+webapp/.vite/
