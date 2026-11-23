@@ -8,7 +8,7 @@ import time
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from docker.errors import NotFound
 
@@ -26,7 +26,7 @@ from bot.formatting import (
 from bot.keyboards import render_race_board
 from bot.services.sessions import cleanup_group_session, drop_session, refresh_race_board
 from bot.state import Sandbox, alloc_lock, group_locks, locks
-from config import MAX_CONTAINERS, SESSION_TTL
+from config import MAX_CONTAINERS, SESSION_TTL, WEBAPP_URL
 
 log = logging.getLogger("bot")
 router = Router()
@@ -48,6 +48,11 @@ async def cmd_tasks(message: Message):
     user = await db.upsert_user(message.from_user.id, message.from_user.username)
     tasks = await db.list_tasks(user["id"])
     kb = InlineKeyboardBuilder()
+    if WEBAPP_URL:
+        kb.button(
+            text="⚡ Відкрити Cyberpunk Mini App",
+            web_app=WebAppInfo(url=WEBAPP_URL),
+        )
     for t in tasks:
         mark = "✅ " if t["done"] else ""
         steps = len(json.loads(t["steps_json"]))

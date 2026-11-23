@@ -2,9 +2,10 @@ import html
 
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
 import db
+from config import WEBAPP_URL
 
 router = Router()
 
@@ -13,6 +14,20 @@ router = Router()
 async def cmd_start(message: Message):
     user = await db.upsert_user(message.from_user.id, message.from_user.username)
     if message.chat.type == "private":
+        reply_markup = (
+            InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="⚡ Відкрити Cyberpunk Mini App",
+                            web_app=WebAppInfo(url=WEBAPP_URL),
+                        )
+                    ]
+                ]
+            )
+            if WEBAPP_URL
+            else None
+        )
         await message.answer(
             "👋 Вітаю в <b>CTF/DevOps &amp; Security Sandbox</b>!\n\n"
             "Розв'язуй практичні завдання з Linux, кібербезпеки, баз даних і мереж в ізольованому "
@@ -29,7 +44,8 @@ async def cmd_start(message: Message):
             "/race — 🏎 Швидкісна гонка (кожному свій контейнер у DM)\n"
             "/coop — 🤝 Один термінал на всіх (спільний інцидент-респонс)\n"
             "/koth — 🏰 Attack-Defense (5 хв Захист vs 10 хв Атака)\n"
-            "/relay — 🏃‍♂️ Естафета з примусовою передачею ходу"
+            "/relay — 🏃‍♂️ Естафета з примусовою передачею ходу",
+            reply_markup=reply_markup,
         )
     else:
         await message.answer(
